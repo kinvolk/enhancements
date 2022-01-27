@@ -22,18 +22,13 @@
   - [Phases](#phases)
     - [Phase 1: pods &quot;without&quot; volumes](#phase-1-pods-without-volumes)
     - [Phase 2: pods with volumes](#phase-2-pods-with-volumes)
-    - [Phase 3: pod to pod isolation](#phase-3-pod-to-pod-isolation)
+    - [Phase 3: TBD](#phase-3-tbd)
   - [Summary of the Proposed Changes](#summary-of-the-proposed-changes)
   - [Test Plan](#test-plan)
   - [Graduation Criteria](#graduation-criteria)
-    - [pod.spec.useHostUsers graduation](#podspecusehostusers-graduation)
       - [Alpha](#alpha)
       - [Beta](#beta)
       - [GA](#ga)
-    - [pod.spec.securityContext.userns.pod2podIsolation graduation](#podspecsecuritycontextusernspod2podisolation-graduation)
-      - [Alpha](#alpha-1)
-      - [Beta](#beta-1)
-      - [GA](#ga-1)
   - [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy)
   - [Version Skew Strategy](#version-skew-strategy)
 - [Production Readiness Review Questionnaire](#production-readiness-review-questionnaire)
@@ -70,15 +65,6 @@ Items marked with (R) are required *prior to targeting to a milestone / release*
 [kubernetes/website]: https://git.k8s.io/website
 
 ## Summary
-
-This KEP adds a new `hostUsers` field  to `pod.Spec` to allow to enable/disable
-using user namespaces for pods. Furthermore, it allows increased pod to pod
-isolation by means of `pod.spec.securityContext.userns.pod2podIsolation` field.
-
-It allows users to place pods in different user namespaces increasing the
-pod-to-pod and pod-to-host isolation. This extra isolation increases the cluster
-security as it protects the host and other pods from malicious or compromised
-processes inside containers that are able to break into the host.
 
 ## Motivation
 
@@ -149,6 +135,9 @@ Here we use UIDs, but the same applies for GIDs.
 
 ## Proposal
 
+This KEP adds a new `hostUsers` field  to `pod.Spec` to allow to enable/disable
+using user namespaces for pods.
+
 This proposal aims to support running pods inside user namespaces. This will
 improve the pod to node isolation (phase 1 and 2) and pod to pod isolation
 (phase 3) we currently have.
@@ -173,7 +162,7 @@ kernel module with `CAP_SYS_MODULE`.
 #### Story 3
 
 As a cluster admin, I want to allow users to run their container as root
-without that process having root privileged on the host, so I can mitigate the
+without that process having root privileges on the host, so I can mitigate the
 impact of a compromised container.
 
 #### Story 4
@@ -185,7 +174,7 @@ host files).
 
 #### Story 5
 
-As a cluster admin, I want to use different host UIDs/GIDs for pods running in
+As a cluster admin, I want to use different host UIDs/GIDs for pods running on
 the same node (whenever kernel/kube features allow it), so I can mitigate the
 impact a compromised pod can have on other pods and the node itself.
 
@@ -199,20 +188,14 @@ impact a compromised pod can have on other pods and the node itself.
 
 ## Design Details
 
-Note: Names are preliminary yet, I'm using field names to simplify explanations.
-
 ### Pod.spec changes
 
 The following changes will be done to the pod.spec:
 
-- `pod.spec.useHostUsers`: bool.
+- `pod.spec.hostUsers`: bool.
 If true or not present, uses the host user namespace (as today)
 If false, a new userns is created for the pod.
-This field will be used for phase 1, 2 and 3.
-
-- `pod.spec.securityContext.userns.pod2podIsolation`: Enum
-If enabled, we will make the userns mappings be non-overlapping as much as possible.
-This field will be used in phase 3.
+By default it is set to `true`.
 
 ### Phases
 
@@ -238,11 +221,9 @@ combination of the following volume types are used by the pod:
 This list of volumes was chosen as they can't be used to share files with other
 pods.
 
-The mapping length will be 65535, mapping the range 0-65534 to the pod. This wide
-range makes sure most workloads will work fine.
-
-The mapping will be chosen by the kubelet, using a simple algorithm to give
-different pods in this category ("without" volumes) a non-overlapping mapping.
+The mapping and the mapping length will be chosen by the kubelet,
+using a simple algorithm to give different pods in this category
+("without" volumes) a non-overlapping mapping.
 Giving non-overlapping mappings generates the best isolation for pods.
 
 Furthermore, the node UID space of 2^32 can hold up to 2^16 pods each with a
@@ -267,56 +248,7 @@ listed vulnerabilities (as the host is protected from the container). It is also
 a trivial next-step to take, given that we have phase 1 implemented: just return
 the same mapping if the pod has other volumes.
 
-#### Phase 3: pod to pod isolation
-
-This phase will provide more isolation between pods that use volumes (as in
-phase 2) and requires another opt-in field:
-`pod.spec.securityContext.pod2podIsolation`.
-
-This phase will try to not share the same mapping for all pods with volumes, as
-phase 2 does, but to achieve it some trade off needs to be made. This phase
-builds on the work of the previous phases and more details will be defined while
-the other phases evolve.
-
-Here are some ideas so far:
-
-One idea is to give different mappings to pods in different k8s namespaces or
-that use a different service account. This needs to be explored in further
-detail, but will probably impose limits to which workloads can run this (we need
-to expose a shorter mapping, less than 65535).
-
-Another idea is to use id mapped mounts. This probably needs changes to the
-OCI runtime-spec, only works with certain filesystems and kernels that may take
-too long for some users to get (like managed services). Giuseppe started to
-experiment in crun with this
-[here](https://github.com/containers/crun/pull/780).
-
-The value for `pod.spec.securityContext.pod2podIsolation` will be an enum, to
-select different strategies and allow room for future improvements.
-
-It is being considered having a value that is "auto" for this fields, that
-will select the best strategy that your node supports. However, as different
-strategies will change the effective UID a container uses, if we add such an
-option the documentation will be VERY clear about the implications and
-automatizations will be provided whenever possible (we have some ideas on this
-front).
-
-Another improvement suggested by @ddebroy to do here is:
- * Pods using also only [local ephemeral CSI volumes][csi-ephemeral-vol], as
-   they share the same lifecycle of the pod, can be moved to use non-overlapping
-   mappings.
-
-This change can probably be done under the hood without the user noticing, to
-achieve more pod 2 pod isolation, and might not need the user to use
-`pod.spec.securityContext.pod2podIsolation`. However, some changes for the CSI
-vol to use the effective UID/GID might be needed and not trivial. @ddebroy has
-[kindly offered to help][csi-help] with this improvement
-
-[csi-ephemeral-vol]: https://kubernetes-csi.github.io/docs/ephemeral-local-volumes.html#overview
-[csi-help]: https://github.com/kubernetes/enhancements/pull/3065/files#r762046107
-
-If this phase turns out to be a lot of work, it will be left out as future work
-for other KEPs.
+#### Phase 3: TBD
 
 ### Summary of the Proposed Changes
 
@@ -347,23 +279,16 @@ TBD
 
 ### Graduation Criteria
 
-Graduation for each pod.spec field we introduce will be separate.
-
-#### pod.spec.useHostUsers graduation
-
 ##### Alpha
 
 ##### Beta
 
 ##### GA
 
-#### pod.spec.securityContext.userns.pod2podIsolation graduation
-
-##### Alpha
-
-##### Beta
-
-##### GA
+- Make plans on whether, when, and how to enable by default
+- Should we reconsider making the mappings smaller by default?
+- Should we allow any way for users to for "more" IDs mapped? If yes, how many more and how?
+- Should we allow the user can ask for specific mappings?
 
 ### Upgrade / Downgrade Strategy
 
