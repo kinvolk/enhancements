@@ -230,9 +230,11 @@ combination of the following volume types are used by the pod:
 This list of volumes was chosen as they can't be used to share files with other
 pods.
 
-The mapping and the mapping length will be chosen by the kubelet,
-using a simple algorithm to give different pods in this category
-("without" volumes) a non-overlapping mapping.
+The mapping length will be 65535, mapping the range 0-65534 to the pod. This wide
+range makes sure most workloads will work fine.
+
+The mapping will be chosen by the kubelet, using a simple algorithm to give
+different pods in this category ("without" volumes) a non-overlapping mapping.
 Giving non-overlapping mappings generates the best isolation for pods.
 
 Furthermore, the node UID space of 2^32 can hold up to 2^16 pods each with a
