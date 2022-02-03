@@ -66,6 +66,8 @@ Items marked with (R) are required *prior to targeting to a milestone / release*
 
 ## Summary
 
+This KEP adds support to use user-namespaces in pods.
+
 ## Motivation
 
 From
@@ -203,8 +205,15 @@ We propose to divide the work in 3 phases. Each phase makes this work with
 either more isolation or more workloads. When no support is yet added to handle
 some workload, a clear error will be shown.
 
+PLEASE note that only phase 1 is targeted for alpha. Also note that the missing
+details (CRI changes, changes needed in container runtimes, etc.) will be added
+in a follow-up PRs.
+
 Please note the last sub-section here is a table with the summary of the changes
-proposed on each phase.
+proposed on each phase. That table is not updated (it is from the initial
+proposal, doesn't have all the feedback and adjustments we discussed) but can
+still be useful as a general overview.
+
 
 #### Phase 1: pods "without" volumes
 
@@ -252,7 +261,7 @@ the same mapping if the pod has other volumes.
 
 ### Summary of the Proposed Changes
 
-[This table](https://docs.google.com/presentation/d/1z4oiZ7v4DjWpZQI2kbFbI8Q6botFaA07KJYaKA-vZpg/edit#slide=id.gfd10976c8b_1_41) gives you a quick overview of each phase.
+[This table](https://docs.google.com/presentation/d/1z4oiZ7v4DjWpZQI2kbFbI8Q6botFaA07KJYaKA-vZpg/edit#slide=id.gfd10976c8b_1_41) gives you a quick overview of each phase (note it is outdated, but still useful for a general overview).
 
 
 ### Test Plan
@@ -280,6 +289,7 @@ TBD
 ### Graduation Criteria
 
 ##### Alpha
+- Phase 1 implemented
 
 ##### Beta
 
