@@ -1,4 +1,4 @@
-# KEP-127: Support User Namespaces
+# KEP-3317: Support User Namespaces
 
 <!-- toc -->
 - [Release Signoff Checklist](#release-signoff-checklist)
@@ -19,6 +19,7 @@
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
   - [Pod.spec changes](#podspec-changes)
+  - [CRI changes](#cri-changes)
   - [Phases](#phases)
     - [Phase 1: pods &quot;without&quot; volumes](#phase-1-pods-without-volumes)
     - [Phase 2: pods with volumes](#phase-2-pods-with-volumes)
@@ -199,6 +200,68 @@ The following changes will be done to the pod.spec:
 If true or not present, uses the host user namespace (as today)
 If false, a new userns is created for the pod.
 By default it is set to `true`.
+
+### CRI changes
+
+The following messages will be added:
+
+```
+// IDMapping describes host to container ID mappings for a pod sandbox.
+// pod.
+message IDMapping {
+    // host_id is the id on the host.
+    uint32 host_id = 1;
+    // container_id is the id in the container.
+    uint32 container_id = 2;
+    // length is the size of the range to map.
+    uint32 length = 3;
+}
+
+// UserNamespace describes the intended user namespace configuration for a sandbox.
+message UserNamespace {
+    // NamespaceMode: `POD` or `NODE`
+    NamespaceMode mode = 1;
+
+    // uids specifies the UID mappings for the user namespace.
+    repeated IDMapping uids = 2;
+
+    // gids specifies the GID mappings for the user namespace.
+    repeated IDMapping gids = 3;
+}
+```
+
+The existing message `NamespaceOption` will have a `user` field added.
+The complete `NamespaceOption` message with the new field is shown here:
+
+```
+// NamespaceOption provides options for Linux namespaces.
+message NamespaceOption {
+    // Network namespace for this container/sandbox.
+    // Note: There is currently no way to set CONTAINER scoped network in the Kubernetes API.
+    // Namespaces currently set by the kubelet: POD, NODE
+    NamespaceMode network = 1;
+    // PID namespace for this container/sandbox.
+    // Note: The CRI default is POD, but the v1.PodSpec default is CONTAINER.
+    // The kubelet's runtime manager will set this to CONTAINER explicitly for v1 pods.
+    // Namespaces currently set by the kubelet: POD, CONTAINER, NODE, TARGET
+    NamespaceMode pid = 2;
+    // IPC namespace for this container/sandbox.
+    // Note: There is currently no way to set CONTAINER scoped IPC in the Kubernetes API.
+    // Namespaces currently set by the kubelet: POD, NODE
+    NamespaceMode ipc = 3;
+    // Target Container ID for NamespaceMode of TARGET. This container must have been
+    // previously created in the same pod. It is not possible to specify different targets
+    // for each namespace.
+    string target_id = 4;
+    // User namespace for this sandbox.
+	// The Kubelet picks the user namespace configuration to use for the sandbox.  The mappings
+	// are specified as part of the UserNamespace struct.  If the struct is nil, then the POD mode
+	// must be assumed.  This is done for backward compatibility with older Kubelet versions that
+	// do not set a user namespace.
+	UserNamespace user = 5;
+}
+
+```
 
 ### Phases
 
