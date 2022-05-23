@@ -3,7 +3,6 @@ kep-number: 3317
 authors:
   - "@rata"
   - "@giuseppe"
-  - "@mauriciovasquezbernal"
 owning-sig: sig-node
 participating-sigs: []
 status: provisional
