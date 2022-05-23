@@ -22,6 +22,7 @@
   - [CRI changes](#cri-changes)
   - [Phases](#phases)
     - [Phase 1: pods &quot;without&quot; volumes](#phase-1-pods-without-volumes)
+      - [pkg/volume changes for phase I](#pkgvolume-changes-for-phase-i)
     - [Phase 2: pods with volumes](#phase-2-pods-with-volumes)
     - [Phase 3: TBD](#phase-3-tbd)
     - [Unresolved](#unresolved)
@@ -312,6 +313,56 @@ During phase 1, to make sure we don't exhaust the host UID namespace, we will
 limit the number of pods using user namespaces to `min(maxPods, 1024)`. This
 leaves us plenty of host UID space free and this limits is probably never hit in
 practice. See UNRESOLVED for more some UNRESOLVED info we still have on this.
+
+##### pkg/volume changes for phase I
+
+We need the files created by the kubelet for these volume types to be readable
+by the user the pod is mapped to in the host. Luckily, Kuberentes already
+supports specifying an [fsUser and fsGroup for volumes][volume-mounter-args] so
+the changes needed here are rather small.
+
+First, we need to teach the [operation executor][operation-executor] to convert
+the container UIDs/GIDs to the host UIDs/GIDs that this pod is mapped to. To do
+this, we will modify the [volumeHost interface][volumeHost-interface] adding
+functions to transform a container ID to the corresponding host ID, so the
+operation executor will just call that function (via
+self.volumePluginMgr.Host.GetHostIDsForPod())
+
+This function will call the kubelet, which will use the user namespace manager
+created to transform the IDs for that pod. The [volumeHost
+interface][volumeHost-interface] will then have this new method:
+
+```
+GetHostIDsForPod(pod *v1.Pod, containerUID, containerGID *int64) (hostUID, hostGID *int64, err error)
+```
+
+This method will only transform the IDs if the pod is running with userns
+enabled. If userns is disabled, the params will not be translated and, also, 
+GetHostIDsForPod() will return nil if the containerUID/containerGID received
+where nil. This is to keep the current functionality untouched, as [fsUser and
+fsGroup can be set to nil][operation-executor] today by the operation executor.
+
+Secondly, we need to modify these volume types to honor the `fsUser` passed in
+mounterArgs to their SetUpAt() method. As the [AtomicWriter already knows and
+honors the FsUser field][atomic-writer-fsUser] already, just setting this field
+is missing when creating the FileProjection (only done when the feature gate is
+enabled). For example, configmaps will just need to set FsUser alongside Data
+and Mode [here][configmap-fsuser] (and all the other paths in that function that
+create the projection, of course). Other volume types are quite similar too.
+
+For this we need to modify the MakePayload() or CollectData() functions of each
+supported volume type to handle the fsUser new param, and the corresponding
+volume SetUpAt() function to pass this new param when calling AtomicWriter.
+
+We have written already this code and the per-volume diff is 3 lines.
+
+For fsGroup() we don't need any changes, these volume types already honors it.
+
+[volume-mounter-args]: https://github.com/kubernetes/kubernetes/blob/cfd69463deeebfc5ae8a0813d7d2b125033c4aca/pkg/volume/volume.go#L125-L129
+[operation-executor]: https://github.com/kubernetes/kubernetes/blob/cfd69463deeebfc5ae8a0813d7d2b125033c4aca/pkg/volume/util/operationexecutor/operation_generator.go#L674-L675
+[volumeHost interface]: https://github.com/kubernetes/kubernetes/blob/cfd69463deeebfc5ae8a0813d7d2b125033c4aca/pkg/volume/plugins.go#L360-L361
+[atomic-writer-fsUser]: https://github.com/kubernetes/kubernetes/blob/cfd69463deeebfc5ae8a0813d7d2b125033c4aca/pkg/volume/util/atomic_writer.go#L68
+[configmap-fsuser]: https://github.com/kubernetes/kubernetes/blob/cfd69463deeebfc5ae8a0813d7d2b125033c4aca/pkg/volume/configmap/configmap.go#L272-L273
 
 #### Phase 2: pods with volumes
 
