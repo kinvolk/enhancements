@@ -13,6 +13,12 @@ reviewers:
   - "@thockin"
 approvers:
   - "@derekwaynecarr"
+
+stage: alpha
+latest-milestone: "v1.25"
+milestone:
+  alpha: "v1.25"
+
 feature-gates:
   - name: UserNamespacesSupport
     components:
