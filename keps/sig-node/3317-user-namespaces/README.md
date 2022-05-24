@@ -555,6 +555,43 @@ Note this section is a WIP yet.
 
 ### Version Skew Strategy
 
+<!--
+If applicable, how will the component handle version skew with other
+components? What are the guarantees? Make sure this is in the test plan.
+
+Consider the following in developing a version skew strategy for this
+enhancement:
+- Does this enhancement involve coordinating behavior in the control plane and
+  in the kubelet? How does an n-2 kubelet without this feature available behave
+  when this feature is used?
+- Will any other components on the node change? For example, changes to CSI,
+  CRI or CNI may require updating that component before the kubelet.
+-->
+
+Some definitions first:
+- New kubelet: kubelet with CRI proto files that includes the changes proposed in
+this KEP.
+
+- Old kubelet: idem, but CRI proto files don't include this changes.
+
+- New runtime: container runtime with CRI proto files that includes the changes
+proposed in this KEP.
+
+- Old runtime: idem, but CRI proto files don't include this changes.
+
+New runtime and old kubelet: all works just fine. Kubelet doesn't request userns
+(doesn't have that feature) and therefore the runtime doesn't create them. The
+runtime can detect this situation as the `user` field in the `NamespaceOption`
+will be seen as nil, [thanks to protobuf][proto3-defaults]. We already tested
+this with real code.
+
+Old runtime and new kubelet: all will work fine. As the `user` field of the
+`NamespaceOption` message is not part of the runtime protofiles, that part is
+ignored by the runtime and pods are created using the host userns.
+
+
+[proto3-defaults]: https://developers.google.com/protocol-buffers/docs/proto3#default
+
 ## Production Readiness Review Questionnaire
 
 <!--
