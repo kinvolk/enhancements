@@ -44,7 +44,7 @@
 - [Implementation History](#implementation-history)
 - [Drawbacks](#drawbacks)
 - [Alternatives](#alternatives)
-- [References](#references)
+- [Infrastructure Needed (Optional)](#infrastructure-needed-optional)
 <!-- /toc -->
 
 ## Release Signoff Checklist
@@ -479,86 +479,421 @@ Note this section is a WIP yet.
 
 ## Production Readiness Review Questionnaire
 
+<!--
+
+Production readiness reviews are intended to ensure that features merging into
+Kubernetes are observable, scalable and supportable; can be safely operated in
+production environments, and can be disabled or rolled back in the event they
+cause increased failures in production. See more in the PRR KEP at
+https://git.k8s.io/enhancements/keps/sig-architecture/1194-prod-readiness.
+
+The production readiness review questionnaire must be completed and approved
+for the KEP to move to `implementable` status and be included in the release.
+
+In some cases, the questions below should also have answers in `kep.yaml`. This
+is to enable automation to verify the presence of the review, and to reduce review
+burden and latency.
+
+The KEP must have a approver from the
+[`prod-readiness-approvers`](http://git.k8s.io/enhancements/OWNERS_ALIASES)
+team. Please reach out on the
+[#prod-readiness](https://kubernetes.slack.com/archives/CPNHUMN74) channel if
+you need any help or guidance.
+-->
+
 ### Feature Enablement and Rollback
 
-* **How can this feature be enabled / disabled in a live cluster?**
-  - [ ] Feature gate
-    - Feature gate name:
-    - Components depending on the feature gate:
+<!--
+This section must be completed when targeting alpha to a release.
+-->
 
-* **Does enabling the feature change any default behavior?**
+###### How can this feature be enabled / disabled in a live cluster?
 
-* **Can the feature be disabled once it has been enabled (i.e. can we roll back
-  the enablement)?**
+<!--
+Pick one of these and delete the rest.
 
-* **What happens if we reenable the feature if it was previously rolled back?**
+Documentation is available on [feature gate lifecycle] and expectations, as
+well as the [existing list] of feature gates.
 
-* **Are there any tests for feature enablement/disablement?**
+[feature gate lifecycle]: https://git.k8s.io/community/contributors/devel/sig-architecture/feature-gates.md
+[existing list]: https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
+-->
+
+- [x] Feature gate (also fill in values in `kep.yaml`)
+  - Feature gate name: UserNamespacesSupport
+  - Components depending on the feature gate: kubelet
+
+###### Does enabling the feature change any default behavior?
+
+No.
+
+<!--
+Any change of default behavior may be surprising to users or break existing
+automations, so be extremely careful here.
+-->
+
+###### Can the feature be disabled once it has been enabled (i.e. can we roll back the enablement)?
+
+Yes. Pods that were created and opted-in to use user namespaces, will have to be
+recreated to run again without user namespaces.
+
+Other than that, it is safe to disable once it was enabled.
+
+<!--
+Describe the consequences on existing workloads (e.g., if this is a runtime
+feature, can it break the existing applications?).
+
+Feature gates are typically disabled by setting the flag to `false` and
+restarting the component. No other changes should be necessary to disable the
+feature.
+
+NOTE: Also set `disable-supported` to `true` or `false` in `kep.yaml`.
+-->
+
+###### What happens if we reenable the feature if it was previously rolled back?
+
+Pods will have to be re-created to use the feature.
+
+###### Are there any tests for feature enablement/disablement?
+
+Yes, we will test for when the field pod.spec.HostUsers is set to true, false
+and not set.
+
+We will also unit test that, if pods were created with the new field
+pod.specHostUsers, then if the featuregate is disabled all works as expected (no
+user namespace is used).
+
+<!--
+The e2e framework does not currently support enabling or disabling feature
+gates. However, unit tests in each component dealing with managing data, created
+with and without the feature, are necessary. At the very least, think about
+conversion tests if API types are being modified.
+
+Additionally, for features that are introducing a new API field, unit tests that
+are exercising the `switch` of feature gate itself (what happens if I disable a
+feature gate after having objects written with the new field) are also critical.
+You can take a look at one potential example of such test in:
+https://github.com/kubernetes/kubernetes/pull/97058/files#diff-7826f7adbc1996a05ab52e3f5f02429e94b68ce6bce0dc534d1be636154fded3R246-R282
+-->
 
 ### Rollout, Upgrade and Rollback Planning
 
-Will be added before transition to beta.
+<!--
+This section must be completed when targeting beta to a release.
+-->
 
-* **How can a rollout fail? Can it impact already running workloads?**
+###### How can a rollout or rollback fail? Can it impact already running workloads?
 
-* **What specific metrics should inform a rollback?**
+<!--
+Try to be as paranoid as possible - e.g., what if some components will restart
+mid-rollout?
 
-* **Were upgrade and rollback tested? Was the upgrade->downgrade->upgrade path tested?**
+Be sure to consider highly-available clusters, where, for example,
+feature flags will be enabled on some API servers and not others during the
+rollout. Similarly, consider large clusters and how enablement/disablement
+will rollout across nodes.
+-->
 
-* **Is the rollout accompanied by any deprecations and/or removals of features, APIs,
-fields of API types, flags, etc.?**
+###### What specific metrics should inform a rollback?
 
+<!--
+What signals should users be paying attention to when the feature is young
+that might indicate a serious problem?
+-->
+
+###### Were upgrade and rollback tested? Was the upgrade->downgrade->upgrade path tested?
+
+<!--
+Describe manual testing that was done and the outcomes.
+Longer term, we may want to require automated upgrade/rollback tests, but we
+are missing a bunch of machinery and tooling and can't do that now.
+-->
+
+###### Is the rollout accompanied by any deprecations and/or removals of features, APIs, fields of API types, flags, etc.?
+
+<!--
+Even if applying deprecation policies, they may still surprise some users.
+-->
 
 ### Monitoring Requirements
 
-Will be added before transition to beta.
+<!--
+This section must be completed when targeting beta to a release.
 
-* **How can an operator determine if the feature is in use by workloads?**
+For GA, this section is required: approvers should be able to confirm the
+previous answers based on experience in the field.
+-->
 
-* **What are the SLIs (Service Level Indicators) an operator can use to determine
-the health of the service?**
+###### How can an operator determine if the feature is in use by workloads?
 
-* **What are the reasonable SLOs (Service Level Objectives) for the above SLIs?**
+<!--
+Ideally, this should be a metric. Operations against the Kubernetes API (e.g.,
+checking if there are objects with field X set) may be a last resort. Avoid
+logs or events for this purpose.
+-->
 
-* **Are there any missing metrics that would be useful to have to improve observability
-of this feature?**
+###### How can someone using this feature know that it is working for their instance?
+
+<!--
+For instance, if this is a pod-related feature, it should be possible to determine if the feature is functioning properly
+for each individual pod.
+Pick one more of these and delete the rest.
+Please describe all items visible to end users below with sufficient detail so that they can verify correct enablement
+and operation of this feature.
+Recall that end users cannot usually observe component logs or access metrics.
+-->
+
+- [ ] Events
+  - Event Reason: 
+- [ ] API .status
+  - Condition name: 
+  - Other field: 
+- [ ] Other (treat as last resort)
+  - Details:
+
+###### What are the reasonable SLOs (Service Level Objectives) for the enhancement?
+
+<!--
+This is your opportunity to define what "normal" quality of service looks like
+for a feature.
+
+It's impossible to provide comprehensive guidance, but at the very
+high level (needs more precise definitions) those may be things like:
+  - per-day percentage of API calls finishing with 5XX errors <= 1%
+  - 99% percentile over day of absolute value from (job creation time minus expected
+    job creation time) for cron job <= 10%
+  - 99.9% of /health requests per day finish with 200 code
+
+These goals will help you determine what you need to measure (SLIs) in the next
+question.
+-->
+
+###### What are the SLIs (Service Level Indicators) an operator can use to determine the health of the service?
+
+<!--
+Pick one more of these and delete the rest.
+-->
+
+- [ ] Metrics
+  - Metric name:
+  - [Optional] Aggregation method:
+  - Components exposing the metric:
+- [ ] Other (treat as last resort)
+  - Details:
+
+###### Are there any missing metrics that would be useful to have to improve observability of this feature?
+
+<!--
+Describe the metrics themselves and the reasons why they weren't added (e.g., cost,
+implementation difficulties, etc.).
+-->
 
 ### Dependencies
 
-* **Does this feature depend on any specific services running in the cluster?**: No.
+<!--
+This section must be completed when targeting beta to a release.
+-->
+
+###### Does this feature depend on any specific services running in the cluster?
+
+<!--
+Think about both cluster-level services (e.g. metrics-server) as well
+as node-level agents (e.g. specific version of CRI). Focus on external or
+optional services that are needed. For example, if this feature depends on
+a cloud provider API, or upon an external software-defined storage or network
+control plane.
+
+For each of these, fill in the following—thinking about running existing user workloads
+and creating new ones, as well as about cluster-level services (e.g. DNS):
+  - [Dependency name]
+    - Usage description:
+      - Impact of its outage on the feature:
+      - Impact of its degraded performance or high-error rates on the feature:
+-->
 
 ### Scalability
 
-* **Will enabling / using this feature result in any new API calls?** No.
+<!--
+For alpha, this section is encouraged: reviewers should consider these questions
+and attempt to answer them.
 
-* **Will enabling / using this feature result in introducing new API types?** No.
+For beta, this section is required: reviewers must answer these questions.
 
-* **Will enabling / using this feature result in any new calls to the cloud
-provider?** No.
+For GA, this section is required: approvers should be able to confirm the
+previous answers based on experience in the field.
+-->
 
-* **Will enabling / using this feature result in increasing size or count of
-the existing API objects?** Yes. The PodSpec will be increased.
+###### Will enabling / using this feature result in any new API calls?
 
-* **Will enabling / using this feature result in increasing time taken by any
-operations covered by [existing SLIs/SLOs]?**
+No.
 
-* **Will enabling / using this feature result in non-negligible increase of
-resource usage (CPU, RAM, disk, IO, ...) in any components?**: No.
+<!--
+Describe them, providing:
+  - API call type (e.g. PATCH pods)
+  - estimated throughput
+  - originating component(s) (e.g. Kubelet, Feature-X-controller)
+Focusing mostly on:
+  - components listing and/or watching resources they didn't before
+  - API calls that may be triggered by changes of some Kubernetes resources
+    (e.g. update of object X triggers new updates of object Y)
+  - periodic API calls to reconcile state (e.g. periodic fetching state,
+    heartbeats, leader election, etc.)
+-->
+
+###### Will enabling / using this feature result in introducing new API types?
+
+<!--
+Describe them, providing:
+  - API type
+  - Supported number of objects per cluster
+  - Supported number of objects per namespace (for namespace-scoped objects)
+-->
+
+###### Will enabling / using this feature result in any new calls to the cloud provider?
+
+No.
+<!--
+Describe them, providing:
+  - Which API(s):
+  - Estimated increase:
+-->
+
+###### Will enabling / using this feature result in increasing size or count of the existing API objects?
+
+Yes. The pod.Spec.HostUsers field is a bool, should be small.
+
+<!--
+Describe them, providing:
+  - API type(s):
+  - Estimated increase in size: (e.g., new annotation of size 32B)
+  - Estimated amount of new objects: (e.g., new Object X for every existing Pod)
+-->
+
+###### Will enabling / using this feature result in increasing time taken by any operations covered by existing SLIs/SLOs?
+
+Not in any Kubernetes component, it might take more time for the container
+runtime to start the pod _if they support old kernels_.
+
+The SLO that might be affected is:
+
+> Startup latency of schedulable stateless pods, excluding time to pull images and run init containers, measured from pod creation timestamp to when all its containers are reported as started and observed via watch, measured as 99th percentile over last 5 minutes
+
+The rootfs needs to be accessible by the user in the user namespace the pod is.
+As every pod might run as a different user, we only know the mapping for a pod
+when it is created.
+
+If new kernels are used (5.19+), the container runtime can use idmapped mounts
+in the rootfs and the UID/GID shifting needed so the pod can access the rootfs
+takes a few ms (it is just a bind mount).
+
+If the container runtimes want to support old kernels too, they will need to
+chown the rootfs to the new UIDs/GIDs. This can be slow, although the metacopy
+overlayfs parameter helps so it is not so bad.
+
+The options we have for this plumbing to setup the rootfs:
+ * Consider it the same way we consider the image pull, and explicitelly exclude
+   it from the SLO.
+ * Tell runtimes to not support old kernels (KEP authors are working in the
+   containerd and CRI-O implementation too, we can easily do this)
+ * Tell runtimes to support old kernels if they want, but with a big fat warning
+   in the docs about the implications
+
+In any case, the kubernetes components do not need any change.
+
+
+<!--
+Look at the [existing SLIs/SLOs].
+
+Think about adding additional work or introducing new steps in between
+(e.g. need to do X to start a container), etc. Please describe the details.
+
+[existing SLIs/SLOs]: https://git.k8s.io/community/sig-scalability/slos/slos.md#kubernetes-slisslos
+-->
+
+###### Will enabling / using this feature result in non-negligible increase of resource usage (CPU, RAM, disk, IO, ...) in any components?
+
+Not in any kubernetes component.
+
+The container runtime might use more disk, if the runtime supports this feature
+in old kernels, as that means the runtime needs to chown the rootfs (see
+previous question for more details).
+
+This is not needed on newer kernels, as they can rely on idmapped mounts for the
+UID/GID shifting (it is just a bind mount).
+
+<!--
+Things to keep in mind include: additional in-memory state, additional
+non-trivial computations, excessive access to disks (including increased log
+volume), significant amount of data sent and/or received over network, etc.
+This through this both in small and large cases, again with respect to the
+[supported limits].
+
+[supported limits]: https://git.k8s.io/community//sig-scalability/configs-and-limits/thresholds.md
+-->
 
 ### Troubleshooting
 
-Will be added before transition to beta.
+<!--
+This section must be completed when targeting beta to a release.
 
-* **How does this feature react if the API server and/or etcd is unavailable?**
+For GA, this section is required: approvers should be able to confirm the
+previous answers based on experience in the field.
 
-* **What are other known failure modes?**
+The Troubleshooting section currently serves the `Playbook` role. We may consider
+splitting it into a dedicated `Playbook` document (potentially with some monitoring
+details). For now, we leave it here.
+-->
 
-* **What steps should be taken if SLOs are not being met to determine the problem?**
+###### How does this feature react if the API server and/or etcd is unavailable?
+
+###### What are other known failure modes?
+
+<!--
+For each of them, fill in the following information by copying the below template:
+  - [Failure mode brief description]
+    - Detection: How can it be detected via metrics? Stated another way:
+      how can an operator troubleshoot without logging into a master or worker node?
+    - Mitigations: What can be done to stop the bleeding, especially for already
+      running user workloads?
+    - Diagnostics: What are the useful log messages and their required logging
+      levels that could help debug the issue?
+      Not required until feature graduated to beta.
+    - Testing: Are there any tests for failure mode? If not, describe why.
+-->
+
+###### What steps should be taken if SLOs are not being met to determine the problem?
 
 ## Implementation History
 
+<!--
+Major milestones in the lifecycle of a KEP should be tracked in this section.
+Major milestones might include:
+- the `Summary` and `Motivation` sections being merged, signaling SIG acceptance
+- the `Proposal` section being merged, signaling agreement on a proposed design
+- the date implementation started
+- the first Kubernetes release where an initial version of the KEP was available
+- the version of Kubernetes where the KEP graduated to general availability
+- when the KEP was retired or superseded
+-->
+
 ## Drawbacks
+
+<!--
+Why should this KEP _not_ be implemented?
+-->
 
 ## Alternatives
 
-## References
+<!--
+What other approaches did you consider, and why did you rule them out? These do
+not need to be as detailed as the proposal, but should include enough
+information to express the idea and why it was not acceptable.
+-->
+
+## Infrastructure Needed (Optional)
+
+<!--
+Use this section if you need things from the project/SIG. Examples include a
+new subproject, repos requested, or GitHub details. Listing these here allows a
+SIG to get the process for these resources started right away.
+-->
