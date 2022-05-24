@@ -28,6 +28,10 @@
     - [Unresolved](#unresolved)
   - [Summary of the Proposed Changes](#summary-of-the-proposed-changes)
   - [Test Plan](#test-plan)
+      - [Prerequisite testing updates](#prerequisite-testing-updates)
+      - [Unit tests](#unit-tests)
+      - [Integration tests](#integration-tests)
+      - [e2e tests](#e2e-tests)
   - [Graduation Criteria](#graduation-criteria)
       - [Alpha](#alpha)
       - [Beta](#beta)
@@ -437,19 +441,11 @@ Idem before, see Sergey idea from previous item.
 
 [This table](https://docs.google.com/presentation/d/1z4oiZ7v4DjWpZQI2kbFbI8Q6botFaA07KJYaKA-vZpg/edit#slide=id.gfd10976c8b_1_41) gives you a quick overview of each phase (note it is outdated, but still useful for a general overview).
 
-
 ### Test Plan
 
 <!--
 **Note:** *Not required until targeted at a release.*
-
-Consider the following in developing a test plan for this enhancement:
-- Will there be e2e and integration tests, in addition to unit tests?
-- How will it be tested in isolation vs with other components?
-
-No need to outline all of the test cases, just the general strategy. Anything
-that would count as tricky in the implementation, and anything particularly
-challenging to test, should be called out.
+The goal is to ensure that we don't accept enhancements with inadequate testing.
 
 All code is expected to have adequate tests (eventually with coverage
 expectations). Please adhere to the [Kubernetes testing guidelines][testing-guidelines]
@@ -458,7 +454,86 @@ when drafting this test plan.
 [testing-guidelines]: https://git.k8s.io/community/contributors/devel/sig-testing/testing.md
 -->
 
-TBD
+[x] I/we understand the owners of the involved components may require updates to
+existing tests to make this code solid enough prior to committing the changes necessary
+to implement this enhancement.
+
+##### Prerequisite testing updates
+
+<!--
+Based on reviewers feedback describe what additional tests need to be added prior
+implementing this enhancement to ensure the enhancements have also solid foundations.
+-->
+
+##### Unit tests
+
+<!--
+In principle every added code should have complete unit test coverage, so providing
+the exact set of tests will not bring additional value.
+However, if complete unit test coverage is not possible, explain the reason of it
+together with explanation why this is acceptable.
+-->
+
+<!--
+Additionally, for Alpha try to enumerate the core package you will be touching
+to implement this enhancement and provide the current unit coverage for those
+in the form of:
+- <package>: <date> - <current test coverage>
+The data can be easily read from:
+https://testgrid.k8s.io/sig-testing-canaries#ci-kubernetes-coverage-unit
+
+This can inform certain test coverage improvements that we want to do before
+extending the production code to implement this enhancement.
+-->
+
+Most of the changes will be in a new file we will create, the userns manager.
+Tests are already written for that file.
+
+The rest of the changes are more about hooking it up so it is called.
+
+- `pkg/kubelet/kuberuntime/kuberuntime_container_linux.go`: 24.05.2022 - 90.8%
+- `pkg/volume/util/operationexecutor/operation_generator.go`: 24.05.2022 - 8.6%
+- `pkg/volume/configmap/configmap.go`: 24.05.2022 - 74.8%
+- `pkg/volume/downwardapi/downwardapi.go`: 24.05.2022 - 61.7%
+- `pkg/volume/secret/secret.go`: 24.05.2022 - 65.7%
+- `pkg/volume/projected/projected.go`: 24.05.2022 - 68.2%
+
+##### Integration tests
+
+<!--
+This question should be filled when targeting a release.
+For Alpha, describe what tests will be added to ensure proper quality of the enhancement.
+
+For Beta and GA, add links to added tests together with links to k8s-triage for those tests:
+https://storage.googleapis.com/k8s-triage/index.html
+-->
+
+- <test>: <link to test coverage>
+
+##### e2e tests
+
+<!--
+This question should be filled when targeting a release.
+For Alpha, describe what tests will be added to ensure proper quality of the enhancement.
+
+For Beta and GA, add links to added tests together with links to k8s-triage for those tests:
+https://storage.googleapis.com/k8s-triage/index.html
+
+We expect no non-infra related flakes in the last month as a GA graduation criteria.
+-->
+
+We can do e2e test to verify that userns is disabled when it should.
+
+To test with userns enabled, we need to patch container runtimes. We can either
+try to use a patched version or make the alpha longer and add e2e when we can
+use container runtime versions that have the needed changes.
+
+#### critests
+
+- For Alpha, the feature is tested for containerd and CRI-O in cri-tools repo using critest to
+  make sure the specified user namespace configuration is honored.
+
+- <test>: <link to test coverage>
 
 ### Graduation Criteria
 
