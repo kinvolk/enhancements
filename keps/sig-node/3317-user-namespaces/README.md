@@ -429,6 +429,9 @@ Idem before, see Sergey idea from previous item.
   the KEP to implementable (or if there are long delays to get a review, we might
   decide to do it after the first alpha, as the community prefers and time
   allows). Same applies for VM runtimes.
+  UPDATE: Windows maintainers reviewed and [this change looks good to them][windows-review].
+
+[windows-review]: https://github.com/kubernetes/enhancements/pull/3275#issuecomment-1121603308
 
 ### Summary of the Proposed Changes
 
